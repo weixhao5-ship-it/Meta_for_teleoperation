@@ -1,0 +1,77 @@
+# Unity generated folders
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]serSettings/
+[Mm]emoryCaptures/
+[Rr]ecordings/
+.utmp/
+
+# Asset meta data for ignored folders
+!/[Aa]ssets/**/*.meta
+
+# Visual Studio / Rider / VS Code
+.vs/
+.idea/
+.vscode/
+.gradle/
+ExportedObj/
+*.csproj
+*.unityproj
+*.sln
+*.slnx
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+sysinfo.txt
+__pycache__/
+
+# Build artifacts
+*.apk
+*.aab
+/apk/
+/*_BackUpThisFolder_ButDontShipItWithYourGame/
+/*_BurstDebugInformation_DoNotShip/
+*.unitypackage
+*.app
+crashlytics-build.properties
+
+# Addressables
+/[Aa]ssets/[Aa]ddressable[Aa]ssets[Dd]ata/*/*.bin*
+/[Aa]ssets/[Ss]treamingAssets/aa.meta
+/[Aa]ssets/[Ss]treamingAssets/aa/*
+
+# Claude Code local settings
+.claude/settings.local.json
+
+# Secrets / signing keys / credentials — never commit these
+*.keystore
+*.jks
+*.p12
+*.pfx
+*.pepk
+*.pem
+*.key
+*.p8
+keystore.properties
+local.properties
+.env
+.env.*
+!.env.example
+secrets.json
+google-services.json

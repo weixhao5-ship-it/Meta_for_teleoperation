@@ -1,0 +1,16 @@
+{
+    "name": "HandTrackingViz",
+    "rootNamespace": "HandTrackingViz",
+    "references": [
+        "Unity.XR.Hands"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
