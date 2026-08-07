@@ -20,9 +20,13 @@ namespace HandTrackingViz
                  "Leave empty only if your rig places the origin at world identity.")]
         public Transform trackingOrigin;
 
-        [Header("Hand colors")]
-        public Color rightHandColor = Color.cyan;
-        public Color leftHandColor = Color.magenta;
+        [Header("Markers (landmarks)")]
+        [Tooltip("Colour of the LEFT hand's joint spheres. Kept identical to the " +
+                 "Galaxy_with_hands edition so the two look the same.")]
+        public Color leftHandColor = Color.red;
+        [Tooltip("Colour of the RIGHT hand's joint spheres. Deliberately different from " +
+                 "the left one so the hands stay distinguishable.")]
+        public Color rightHandColor = new Color(1f, 0.4f, 0.1f); // orange-red
 
         [Header("Bones (skeleton lines)")]
         [Tooltip("Colour of the lines connecting the landmarks. Shared by both hands and " +
@@ -69,16 +73,15 @@ namespace HandTrackingViz
             m_AxisYMat = MakeUnlitMaterial(Color.green); // Y
             m_AxisZMat = MakeUnlitMaterial(Color.blue);  // Z
 
-            m_LeftVisual = CreateVisual("LeftHandVisual", leftHandColor, m_LeftMat);
-            m_RightVisual = CreateVisual("RightHandVisual", rightHandColor, m_RightMat);
+            m_LeftVisual = CreateVisual("LeftHandVisual", m_LeftMat);
+            m_RightVisual = CreateVisual("RightHandVisual", m_RightMat);
         }
 
-        HandVisual CreateVisual(string name, Color handColor, Material handMat)
+        HandVisual CreateVisual(string name, Material handMat)
         {
             return new HandVisual(
                 transform,
                 name,
-                handColor,
                 jointSphereRadius,
                 boneLineWidth,
                 axisLength,

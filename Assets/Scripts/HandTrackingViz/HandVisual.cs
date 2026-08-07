@@ -22,7 +22,6 @@ namespace HandTrackingViz
         public HandVisual(
             Transform parent,
             string name,
-            Color handColor,
             float jointSphereRadius,
             float boneLineWidth,
             float axisLength,

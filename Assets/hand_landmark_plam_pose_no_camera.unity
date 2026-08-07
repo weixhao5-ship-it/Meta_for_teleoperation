@@ -407,8 +407,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: HandTrackingViz::HandTrackingViz.HandVisualizer
   trackingOrigin: {fileID: 1758791436}
-  rightHandColor: {r: 0, g: 1, b: 1, a: 1}
-  leftHandColor: {r: 1, g: 0, b: 1, a: 1}
+  leftHandColor: {r: 1, g: 0, b: 0, a: 1}
+  rightHandColor: {r: 1, g: 0.4, b: 0.1, a: 1}
   boneColor: {r: 0, g: 1, b: 0, a: 1}
   jointSphereRadius: 0.008
   boneLineWidth: 0.003
