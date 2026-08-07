@@ -1,6 +1,6 @@
 [한국어](README_KOR.md) | **English**
 
-# Meta_with_hands
+# Meta_for_teleoperation
 
 **Unity app for Meta Quest (Horizon OS).** Visualizes hand tracking on top of
 the passthrough view and streams the HMD, both hands (21 landmarks) and both

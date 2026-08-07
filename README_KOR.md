@@ -1,6 +1,6 @@
 **한국어** | [English](README.md)
 
-# Meta_with_hands
+# Meta_for_teleoperation
 
 **Meta Quest(Horizon OS)용 Unity 앱.** Passthrough 화면 위에 손(hand tracking)을
 시각화하고, HMD·양손(21 landmark)·컨트롤러의 pose/입력 상태를 매 프레임

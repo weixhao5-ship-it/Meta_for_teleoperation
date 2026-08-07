@@ -56,9 +56,6 @@ crashlytics-build.properties
 /[Aa]ssets/[Ss]treamingAssets/aa.meta
 /[Aa]ssets/[Ss]treamingAssets/aa/*
 
-# Claude Code local settings
-.claude/settings.local.json
-
 # Secrets / signing keys / credentials — never commit these
 *.keystore
 *.jks
