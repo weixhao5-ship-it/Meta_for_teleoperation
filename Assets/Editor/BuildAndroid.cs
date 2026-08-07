@@ -19,9 +19,9 @@ using UnityEngine;
 // ProjectSettings.asset) emit several differently-identified APKs without
 // editing the working tree — e.g. the hand and controller builds:
 //
-//   ... -executeMethod BuildAndroid.Build -output Build/Meta_hand.apk
-//   ... -executeMethod BuildAndroid.Build -output Build/Meta_controller.apk \
-//         -productName Meta_controller \
+//   ... -executeMethod BuildAndroid.Build -output Build/Meta_with_hands.apk
+//   ... -executeMethod BuildAndroid.Build -output Build/Meta_with_controllers.apk \
+//         -productName Meta_with_controllers \
 //         -applicationIdentifier com.dongridong.metacontroller
 //
 // The committed identity is restored after the build, so an overridden build

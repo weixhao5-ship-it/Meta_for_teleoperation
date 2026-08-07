@@ -24,6 +24,11 @@ namespace HandTrackingViz
         public Color rightHandColor = Color.cyan;
         public Color leftHandColor = Color.magenta;
 
+        [Header("Bones (skeleton lines)")]
+        [Tooltip("Colour of the lines connecting the landmarks. Shared by both hands and " +
+                 "kept identical to the Galaxy_with_hands edition so the two look the same.")]
+        public Color boneColor = Color.green;
+
         [Header("Sizes (meters)")]
         [Tooltip("Radius of each joint sphere.")]
         public float jointSphereRadius = 0.008f;
@@ -47,6 +52,7 @@ namespace HandTrackingViz
         // Procedurally created materials (unlit, so passthrough lighting doesn't affect them).
         Material m_LeftMat;
         Material m_RightMat;
+        Material m_BoneMat;
         Material m_AxisXMat;
         Material m_AxisYMat;
         Material m_AxisZMat;
@@ -58,6 +64,7 @@ namespace HandTrackingViz
 
             m_LeftMat = MakeUnlitMaterial(leftHandColor);
             m_RightMat = MakeUnlitMaterial(rightHandColor);
+            m_BoneMat = MakeUnlitMaterial(boneColor);    // shared by both hands
             m_AxisXMat = MakeUnlitMaterial(Color.red);   // X
             m_AxisYMat = MakeUnlitMaterial(Color.green); // Y
             m_AxisZMat = MakeUnlitMaterial(Color.blue);  // Z
@@ -77,6 +84,7 @@ namespace HandTrackingViz
                 axisLength,
                 axisLineWidth,
                 handMat,
+                m_BoneMat,
                 m_AxisXMat,
                 m_AxisYMat,
                 m_AxisZMat);
@@ -107,6 +115,7 @@ namespace HandTrackingViz
         {
             DestroyMaterial(m_LeftMat);
             DestroyMaterial(m_RightMat);
+            DestroyMaterial(m_BoneMat);
             DestroyMaterial(m_AxisXMat);
             DestroyMaterial(m_AxisYMat);
             DestroyMaterial(m_AxisZMat);

@@ -28,6 +28,7 @@ namespace HandTrackingViz
             float axisLength,
             float axisLineWidth,
             Material handMaterial,
+            Material boneMaterial,
             Material axisXMaterial,
             Material axisYMaterial,
             Material axisZMaterial)
@@ -52,11 +53,12 @@ namespace HandTrackingViz
                 m_Joints[i] = t;
             }
 
-            // Bone lines.
+            // Bone lines. These use their own material so the skeleton keeps a single
+            // colour across both hands while the joint spheres stay per-hand coloured.
             m_Bones = new LineRenderer[HandLandmarkMapping.BoneConnections.Length];
             for (int i = 0; i < m_Bones.Length; i++)
             {
-                m_Bones[i] = CreateLine(m_Root, "Bone_" + i, handMaterial, boneLineWidth);
+                m_Bones[i] = CreateLine(m_Root, "Bone_" + i, boneMaterial, boneLineWidth);
             }
 
             // Palm coordinate frame axes (X=red, Y=green, Z=blue).

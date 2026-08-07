@@ -717,6 +717,7 @@ MonoBehaviour:
   trackingOrigin: {fileID: 432391540}
   rightHandColor: {r: 0, g: 1, b: 1, a: 1}
   leftHandColor: {r: 1, g: 0, b: 1, a: 1}
+  boneColor: {r: 0, g: 1, b: 0, a: 1}
   jointSphereRadius: 0.008
   boneLineWidth: 0.003
   axisLength: 0.05

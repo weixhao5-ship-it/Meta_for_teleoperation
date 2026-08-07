@@ -26,9 +26,9 @@ build() {
     -logFile -
 }
 
-# Default identity (Meta_hand) matches committed ProjectSettings, so passing it
-# explicitly is redundant but keeps both invocations symmetric and self-documenting.
-build "$OUT/Meta_hand.apk"       Meta_hand       com.dongridong.metahand
-build "$OUT/Meta_controller.apk" Meta_controller com.dongridong.metacontroller
+# Default identity (Meta_with_hands) matches committed ProjectSettings, so passing
+# it explicitly is redundant but keeps both invocations symmetric and self-documenting.
+build "$OUT/Meta_with_hands.apk"       Meta_with_hands       com.dongridong.metahand
+build "$OUT/Meta_with_controllers.apk" Meta_with_controllers com.dongridong.metacontroller
 
 echo ">>> done. APKs in $OUT"

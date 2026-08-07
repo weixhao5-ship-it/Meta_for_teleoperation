@@ -72,13 +72,13 @@ plus the `Hand Tracking Subsystem` + `Meta Quest Support` +
   ```bash
   Unity -quit -batchmode -nographics -projectPath . \
         -buildTarget Android -executeMethod BuildAndroid.Build \
-        -output Build/Meta_hand.apk
+        -output Build/Meta_with_hands.apk
   ```
 - **Both APKs at once** (recommended):
   ```bash
   UNITY=~/Unity/Hub/Editor/6000.2.12f1/Editor/Unity ./Tools/build_all.sh
-  # → Build/Meta_hand.apk        (com.dongridong.metahand)
-  # → Build/Meta_controller.apk  (com.dongridong.metacontroller)
+  # → Build/Meta_with_hands.apk        (com.dongridong.metahand)
+  # → Build/Meta_with_controllers.apk  (com.dongridong.metacontroller)
   ```
   The two APKs have different package names, so they install **side by side**
   on the headset. Product identity is injected via build arguments
@@ -92,7 +92,7 @@ plus the `Hand Tracking Subsystem` + `Meta Quest Support` +
 2. With no signing key configured, a **debug signature is applied
    automatically** → no extra key is needed for sideloading.
    ```bash
-   adb install -r Build/Meta_hand.apk
+   adb install -r Build/Meta_with_hands.apk
    ```
 3. On first launch, allow the **hand tracking permission** dialog.
 

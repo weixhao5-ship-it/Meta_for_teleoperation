@@ -67,13 +67,13 @@ Unity로 열면 자동 복원된다. 첫 오픈 시 패키지 임포트가 끝�
   ```bash
   Unity -quit -batchmode -nographics -projectPath . \
         -buildTarget Android -executeMethod BuildAndroid.Build \
-        -output Build/Meta_hand.apk
+        -output Build/Meta_with_hands.apk
   ```
 - **두 APK 한 번에** (권장):
   ```bash
   UNITY=~/Unity/Hub/Editor/6000.2.12f1/Editor/Unity ./Tools/build_all.sh
-  # → Build/Meta_hand.apk        (com.dongridong.metahand)
-  # → Build/Meta_controller.apk  (com.dongridong.metacontroller)
+  # → Build/Meta_with_hands.apk        (com.dongridong.metahand)
+  # → Build/Meta_with_controllers.apk  (com.dongridong.metacontroller)
   ```
   두 APK는 패키지명이 달라 헤드셋에 **나란히 설치**된다. 제품 정체성은 빌드 인자
   (`-productName` / `-applicationIdentifier`)로 주입되고 빌드 후 원복되므로
@@ -85,7 +85,7 @@ Unity로 열면 자동 복원된다. 첫 오픈 시 패키지 임포트가 끝�
    USB(또는 무선 adb) 연결.
 2. 서명은 키 미지정 시 **디버그 서명이 자동 적용** → sideload에 별도 키 불필요.
    ```bash
-   adb install -r Build/Meta_hand.apk
+   adb install -r Build/Meta_with_hands.apk
    ```
 3. 첫 실행 시 **손 추적 권한** 다이얼로그 허용.
 
