@@ -44,6 +44,12 @@ python Tools/subscriber.py --host <헤드셋IP> --port 5555
 (Galaxy_with_hands 저장소와 **동일한 스키마**를 쓴다 — 수신측 코드는 두 헤드셋을
 구분 없이 그대로 재사용할 수 있다.)
 
+## 기기 매핑
+
+어떤 물리 입력이 어떤 JSON 필드로 나가는지:
+
+![HMD / 컨트롤러 키 매핑](docs/images/meta_keymap.jpg)
+
 ## APK 빌드
 
 ### 필수 설치 (머신에 직접)

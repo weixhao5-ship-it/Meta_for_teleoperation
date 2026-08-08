@@ -48,6 +48,12 @@ system and omission rules:
 (The schema is **identical** to the Galaxy_with_hands repository — receiver
 code can be reused for either headset without any changes.)
 
+## Device mapping
+
+Which physical input becomes which JSON field:
+
+![HMD / controller key mapping](docs/images/meta_keymap.jpg)
+
 ## Building the APK
 
 ### Required installs (on your machine)

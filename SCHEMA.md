@@ -125,6 +125,13 @@ excluded from the landmarks — the palm is provided as its own field.)
 
 ## `controllers`
 
+![HMD / controller key mapping](docs/images/meta_keymap.jpg)
+
+*The figure labels each physical input with the JSON field it is published as.
+Note `grip_trigger` = the index-finger (front) trigger and `ctrl_trigger` = the
+grip (side) trigger — see the mapping table below. The same layout applies to
+every supported device.*
+
 Always 2 entries, `[left, right]`. This is a **completely independent source
 from `hands`**, not a mode switch. Within a single frame hands and controllers
 may **both** be present, **only one**, or **neither**; the receiver picks
