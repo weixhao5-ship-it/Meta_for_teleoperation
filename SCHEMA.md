@@ -84,6 +84,8 @@ Wire format of the stream the headset sends.
 
 ## `hands` — hand tracking
 
+![Hand landmark / palm mapping](docs/images/hands_keymap.jpg)
+
 Always 2 entries, `[left, right]`. Each entry:
 
 | Field | Type | Description |

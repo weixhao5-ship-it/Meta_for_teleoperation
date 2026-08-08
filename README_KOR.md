@@ -46,9 +46,12 @@ python Tools/subscriber.py --host <헤드셋IP> --port 5555
 
 ## 기기 매핑
 
-어떤 물리 입력이 어떤 JSON 필드로 나가는지:
+어떤 물리 입력이 어떤 JSON 필드로 나가는지, 손 랜드마크 21점의 번호는 어떻게
+매겨지는지:
 
 ![HMD / 컨트롤러 키 매핑](docs/images/meta_keymap.jpg)
+
+![손 랜드마크 / 손바닥 매핑](docs/images/hands_keymap.jpg)
 
 ## APK 빌드
 

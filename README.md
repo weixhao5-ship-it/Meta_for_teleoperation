@@ -50,9 +50,12 @@ code can be reused for either headset without any changes.)
 
 ## Device mapping
 
-Which physical input becomes which JSON field:
+Which physical input becomes which JSON field, and how the 21 hand landmarks
+are numbered:
 
 ![HMD / controller key mapping](docs/images/meta_keymap.jpg)
+
+![Hand landmark / palm mapping](docs/images/hands_keymap.jpg)
 
 ## Building the APK
 

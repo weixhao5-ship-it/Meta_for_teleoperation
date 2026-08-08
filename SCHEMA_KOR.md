@@ -81,6 +81,8 @@
 
 ## `hands` — 손 (hand tracking)
 
+![손 랜드마크 / 손바닥 매핑](docs/images/hands_keymap.jpg)
+
 항상 2개, `[left, right]`. 각 요소:
 
 | 필드 | 타입 | 설명 |
