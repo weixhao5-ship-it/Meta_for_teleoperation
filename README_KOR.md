@@ -39,7 +39,7 @@ python Tools/subscriber.py --host <헤드셋IP> --port 5555
 한 줄 = 한 프레임. `timestamp` / `frame` / `hmd` / `hands`(손, 21 landmark) /
 `controllers`(컨트롤러)로 구성된다. 필드별 정의·좌표계·생략 규칙은:
 
-**→ [SCHEMA.md](SCHEMA.md)**
+**→ [SCHEMA_KOR.md](SCHEMA_KOR.md)**
 
 (Galaxy_with_hands 저장소와 **동일한 스키마**를 쓴다 — 수신측 코드는 두 헤드셋을
 구분 없이 그대로 재사용할 수 있다.)

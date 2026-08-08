@@ -1,35 +1,40 @@
-# 데이터 스키마 (TCP NDJSON)
+[한국어](SCHEMA_KOR.md) | **English**
 
-헤드셋이 송신하는 스트림의 와이어 포맷 명세.
-**한 줄 = UTF-8 JSON 객체 1개 = 한 프레임** (`\n` 종단, NDJSON).
+# Data schema (TCP NDJSON)
 
-## 공통 규약
+Wire format of the stream the headset sends.
+**One line = one UTF-8 JSON object = one frame** (`\n`-terminated, NDJSON).
 
-| 항목 | 값 |
+## Common conventions
+
+| Item | Value |
 | --- | --- |
-| 좌표계 | `robot_world` — **오른손(RIGHT-HANDED)**, **+X 전방 / +Y 왼쪽 / +Z 위(하늘)**, 단위 **미터** (FLU: Forward-Left-Up, ROS REP-103 스타일) |
-| 회전 | 쿼터니언, 배열 순서 **`[x, y, z, w]`** (⚠ `[w,x,y,z]` 아님) |
-| 위치 | `[x, y, z]` |
-| 숫자 포맷 | 소수점 이하 최대 6자리, 소수점은 항상 `.` (InvariantCulture) |
-| 배열 순서 | `hands`, `controllers` 모두 항상 **2개 고정, `[left, right]` 순서** |
+| Coordinate system | `robot_world` — **RIGHT-HANDED**, **+X forward / +Y left / +Z up (sky)**, unit **metres** (FLU: Forward-Left-Up, ROS REP-103 style) |
+| Rotation | Quaternion, array order **`[x, y, z, w]`** (⚠ *not* `[w,x,y,z]`) |
+| Position | `[x, y, z]` |
+| Number format | At most 6 decimal places, decimal separator always `.` (InvariantCulture) |
+| Array order | `hands` and `controllers` are both always **exactly 2 entries, in `[left, right]` order** |
 
-> **좌표계 변환은 송신측(퍼블리셔)이 수행한다.** 헤드셋 내부(Unity)는 왼손·Y-up
-> 좌표계지만, 직렬화 시점에 아래 변환으로 오른손 FLU 프레임으로 바꿔 내보낸다:
+> **The coordinate conversion is done on the sending side (the publisher).**
+> Internally the headset (Unity) uses a left-handed, Y-up frame, but at
+> serialization time it is converted to the right-handed FLU frame as follows:
 >
-> - 위치: `(x, y, z)_unity → (z, −x, y)`
-> - 쿼터니언: `(x, y, z, w)_unity → (−z, x, −y, w)`
+> - Position: `(x, y, z)_unity → (z, −x, y)`
+> - Quaternion: `(x, y, z, w)_unity → (−z, x, −y, w)`
 >
-> **+X 전방**은 XR 트래킹 공간의 초기 정면 — 앱 시작(또는 리센터) 시점에 사용자가
-> 바라보던 방향이다. 수신측(로봇 등)은 추가 변환 없이 그대로 사용하면 된다.
+> **+X forward** is the initial forward direction of the XR tracking space — the
+> direction the user was facing when the app started (or was recentred). The
+> receiver (robot, etc.) can use the values as-is, with no further conversion.
 
-### 생략 규칙 (파서가 반드시 처리)
+### Omission rules (your parser must handle these)
 
-- `"tracked": false` 인 객체(hmd / 손 / 컨트롤러)는 **그 아래 키가 아예 없다**
-  (예: 미추적 손은 `{"side":"left","tracked":false}` 로 끝 — `palm`/`landmarks` 없음).
-- `"valid": false` 인 pose(palm / landmark / grip / aim)는 `position`/`rotation` 이
-  **생략**된다 (0으로 채워지지 않음).
+- An object with `"tracked": false` (hmd / hand / controller) **has none of its
+  sub-keys at all** (e.g. an untracked hand ends at
+  `{"side":"left","tracked":false}` — no `palm`/`landmarks`).
+- A pose with `"valid": false` (palm / landmark / grip / aim) **omits**
+  `position`/`rotation` (they are not zero-filled).
 
-## 전체 예시 (실제 직렬화 순서)
+## Full example (actual serialization order)
 
 ```json
 {
@@ -44,7 +49,7 @@
       "palm": { "valid": true, "position": [0, 0, 0], "rotation": [0, 0, 0, 1] },
       "landmarks": [
         { "i": 0, "valid": true, "position": [0, 0, 0], "rotation": [0, 0, 0, 1] }
-        /* … 21개, i = 0..20 … */
+        /* … 21 entries, i = 0..20 … */
       ]
     },
     { "side": "right", "tracked": false }
@@ -64,38 +69,41 @@
 }
 ```
 
-- `timestamp` — 앱 시작 후 경과 초 (double).
-- `frame` — 캡처 시점의 렌더 프레임 번호 (int).
+- `timestamp` — seconds elapsed since app start (double).
+- `frame` — render frame number at capture time (int).
 
 ## `hmd`
 
-| 필드 | 타입 | 설명 |
+| Field | Type | Description |
 | --- | --- | --- |
-| `tracked` | bool | false면 아래 두 필드 생략 |
-| `position` | [x,y,z] | 헤드셋 위치 (m) |
-| `rotation` | [x,y,z,w] | 헤드셋 회전 |
+| `tracked` | bool | If false, the two fields below are omitted |
+| `position` | [x,y,z] | Headset position (m) |
+| `rotation` | [x,y,z,w] | Headset rotation |
 
 ---
 
-## `hands` — 손 (hand tracking)
+## `hands` — hand tracking
 
-항상 2개, `[left, right]`. 각 요소:
+Always 2 entries, `[left, right]`. Each entry:
 
-| 필드 | 타입 | 설명 |
+| Field | Type | Description |
 | --- | --- | --- |
-| `side` | `"left"` \| `"right"` | 어느 손인지 |
-| `tracked` | bool | false면 이하 전부 생략 |
-| `palm` | pose | 손바닥 중앙 pose. `{valid, position, rotation}` |
-| `landmarks` | 배열(21) | 21개 랜드마크, 아래 표 순서 고정 |
+| `side` | `"left"` \| `"right"` | Which hand |
+| `tracked` | bool | If false, everything below is omitted |
+| `palm` | pose | Pose of the palm centre. `{valid, position, rotation}` |
+| `landmarks` | array(21) | 21 landmarks, in the fixed order of the table below |
 
-- **`palm` 정의**: OpenXR `Palm` 관절을 우선 사용. 런타임이 제공하지 않으면
-  위치 = `midpoint(Wrist, MiddleProximal)`, 회전 = Wrist 회전으로 대체.
-- 각 landmark 요소는 `{ "i": <0..20>, "valid": bool, "position": …, "rotation": … }`.
-  관절 하나가 그 프레임에 누락되면 그 요소만 `{"i": n, "valid": false}`.
+- **`palm` definition**: the OpenXR `Palm` joint is used when available. If the
+  runtime does not provide it, position falls back to
+  `midpoint(Wrist, MiddleProximal)` and rotation to the Wrist rotation.
+- Each landmark entry is
+  `{ "i": <0..20>, "valid": bool, "position": …, "rotation": … }`.
+  If a single joint is missing in a given frame, only that entry becomes
+  `{"i": n, "valid": false}`.
 
-### 랜드마크 순서 (MediaPipe 21점 표준)
+### Landmark order (MediaPipe 21-point standard)
 
-| i | 이름 | ← OpenXR 관절 | i | 이름 | ← OpenXR 관절 |
+| i | Name | ← OpenXR joint | i | Name | ← OpenXR joint |
 |---|---|---|---|---|---|
 | 0 | WRIST | Wrist | 11 | MIDDLE_DIP | MiddleDistal |
 | 1 | THUMB_CMC | ThumbMetacarpal | 12 | MIDDLE_TIP | MiddleTip |
@@ -109,57 +117,64 @@
 | 9 | MIDDLE_MCP | MiddleProximal | 20 | PINKY_TIP | LittleTip |
 | 10 | MIDDLE_PIP | MiddleIntermediate | | | |
 
-(OpenXR 26관절 중 MediaPipe에 대응하는 21개만 사용. 검지~새끼의 Metacarpal과
-Palm 관절은 랜드마크에서 제외 — palm은 별도 필드로 제공.)
+(Of the 26 OpenXR joints, only the 21 that map to MediaPipe are used. The
+metacarpal joints of the index through little fingers, and the Palm joint, are
+excluded from the landmarks — the palm is provided as its own field.)
 
 ---
 
-## `controllers` — 컨트롤러
+## `controllers`
 
-항상 2개, `[left, right]`. **`hands`와 완전히 독립된 소스**로, 모드 전환이 아니다.
-한 프레임에 손·컨트롤러가 **둘 다 / 하나만 / 둘 다 아님** 모두 가능하며,
-수신측이 `tracked`인 쪽을 골라 쓰면 된다.
+Always 2 entries, `[left, right]`. This is a **completely independent source
+from `hands`**, not a mode switch. Within a single frame hands and controllers
+may **both** be present, **only one**, or **neither**; the receiver picks
+whichever side reports `tracked`.
 
-각 요소 (tracked=true일 때, 직렬화 순서대로):
+Each entry (when tracked=true, in serialization order):
 
-| 필드 | 타입 | 설명 |
+| Field | Type | Description |
 | --- | --- | --- |
-| `side` | `"left"` \| `"right"` | 어느 손 컨트롤러인지 |
-| `tracked` | bool | false면 이하 전부 생략 |
-| `controller` | pose | **컨트롤러 손잡이의 6DoF pose** (hands의 palm에 대응) |
-| `grip_trigger` | float 0..1 | **검지(전면) 트리거** — 그리퍼 제어 입력으로 사용 |
-| `ctrl_trigger` | float 0..1 | **그립(측면) 트리거** 아날로그 |
-| `thumbstick` | [x, y] | 각 축 -1..1 |
-| `buttons` | 객체 | `{primary, secondary, menu, thumbstick}` 모두 bool |
+| `side` | `"left"` \| `"right"` | Which hand's controller |
+| `tracked` | bool | If false, everything below is omitted |
+| `controller` | pose | **6DoF pose of the controller grip** (counterpart to `palm` in `hands`) |
+| `grip_trigger` | float 0..1 | **Index-finger (front) trigger** — used as the gripper control input |
+| `ctrl_trigger` | float 0..1 | **Grip (side) trigger**, analog |
+| `thumbstick` | [x, y] | Each axis -1..1 |
+| `buttons` | object | `{primary, secondary, menu, thumbstick}`, all bool |
 
-- `buttons.primary` = A/X, `buttons.secondary` = B/Y, `buttons.thumbstick` = 스틱 클릭.
+- `buttons.primary` = A/X, `buttons.secondary` = B/Y, `buttons.thumbstick` =
+  stick click.
 
-### ⚠ 필드 이름은 용도 기준 — 물리 입력과의 대응
+### ⚠ Field names follow their purpose — mapping to physical inputs
 
-필드 이름은 OpenXR 명명이 아니라 **텔레옵 용도 기준**이다. `grip_trigger`는
-"그리퍼(gripper)를 조작하는 트리거"라는 역할 이름이지, 하드웨어의 그립 버튼이 아니다:
+Field names follow the **teleoperation role**, not OpenXR naming. `grip_trigger`
+means "the trigger that operates the gripper" — it is *not* the hardware grip
+button:
 
-| JSON 필드 | 물리 입력 | OpenXR path |
+| JSON field | Physical input | OpenXR path |
 | --- | --- | --- |
-| `controller` | 손잡이 pose | `/input/grip/pose` |
-| `grip_trigger` | **검지(전면) 트리거** | `/input/trigger/value` |
-| `ctrl_trigger` | **그립(측면) 트리거** | `/input/squeeze/value` |
+| `controller` | Grip pose | `/input/grip/pose` |
+| `grip_trigger` | **Index-finger (front) trigger** | `/input/trigger/value` |
+| `ctrl_trigger` | **Grip (side) trigger** | `/input/squeeze/value` |
 
-### tracked / valid 판정 규칙
+### tracked / valid rules
 
-- **`controller` pose 획득 실패 → 컨트롤러 전체가 `tracked: false`** (손잡이 pose가
-  없으면 추종할 대상이 없으므로).
-- 인터랙션 프로파일에 없는 입력(스틱 등)은 `0` / `false`로 채워진다.
-- 앱 설정으로 컨트롤러 샘플링을 꺼도(`publishControllers = false`) `controllers`
-  필드는 사라지지 않고 양쪽 모두 `tracked: false`로 나온다 — **스키마 형태는 항상 동일**.
+- **If the `controller` pose cannot be obtained, the whole controller becomes
+  `tracked: false`** (without a grip pose there is nothing to follow).
+- Inputs absent from the interaction profile (stick, etc.) are filled with `0` /
+  `false`.
+- Even if controller sampling is turned off in the app settings
+  (`publishControllers = false`), the `controllers` field does not disappear —
+  both entries are reported as `tracked: false`. **The schema shape is always
+  the same.**
 
 ---
 
-## 파싱 분기 요약
+## Parsing branches at a glance
 
-| 조건 | 출력 | 주의 |
+| Condition | Output | Note |
 | --- | --- | --- |
-| HMD 미추적 | `"hmd": {"tracked": false}` | `position`/`rotation` 키 없음 |
-| 손 미추적 | `{"side": …, "tracked": false}` | `palm`/`landmarks` 키 없음 |
-| palm/landmark `valid:false` | `{"valid": false}` / `{"i": n, "valid": false}` | `position`/`rotation` 키 없음 |
-| 컨트롤러 미추적 | `{"side": …, "tracked": false}` | `controller` 이하 전부 키 없음 |
+| HMD not tracked | `"hmd": {"tracked": false}` | No `position`/`rotation` keys |
+| Hand not tracked | `{"side": …, "tracked": false}` | No `palm`/`landmarks` keys |
+| palm/landmark `valid:false` | `{"valid": false}` / `{"i": n, "valid": false}` | No `position`/`rotation` keys |
+| Controller not tracked | `{"side": …, "tracked": false}` | No `controller` or any key below it |
