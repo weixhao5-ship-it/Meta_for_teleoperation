@@ -674,7 +674,7 @@ MonoBehaviour:
   streamHeight: 720
   layout: 0
   screenDistance: 1.2
-  fieldOfViewCoverage: 1.2
+  windowHeight: 0.55
   videoShader: {fileID: 4800000, guid: b861a3a5f9014e47a91cc206c54c4119, type: 3}
 --- !u!1 &945561008
 GameObject:

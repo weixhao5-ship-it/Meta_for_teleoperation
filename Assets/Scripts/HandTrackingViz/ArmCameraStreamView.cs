@@ -3,12 +3,13 @@ using System.Collections;
 using System.Runtime.InteropServices;
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.XR;
 
 namespace HandTrackingViz
 {
     /// <summary>
     /// Receives RTP/H.264 with GStreamer on Quest, requires Android MediaCodec hardware
-    /// decoding, and shows the latest decoded frame on a head-locked Unity screen.
+    /// decoding, and shows the latest decoded frame on a movable Unity screen.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class ArmCameraStreamView : MonoBehaviour
@@ -25,9 +26,9 @@ namespace HandTrackingViz
         [Min(2)] public int streamHeight = 720;
         public VideoLayout layout = VideoLayout.Mono;
 
-        [Header("Head-locked display")]
+        [Header("Movable spatial display")]
         [Min(0.2f)] public float screenDistance = 1.2f;
-        [Range(1.0f, 1.5f)] public float fieldOfViewCoverage = 1.2f;
+        [Range(0.25f, 1.5f)] public float windowHeight = 0.55f;
         [SerializeField] Shader videoShader;
 
         private Texture2D m_VideoTexture;
@@ -75,6 +76,22 @@ namespace HandTrackingViz
                 yield break;
             }
 
+            // Wait briefly for OpenXR to supply the first tracked HMD pose, otherwise a
+            // world-anchored window created during Start can appear away from the user.
+            float trackingDeadline = Time.realtimeSinceStartup + 2f;
+            InputDevice headset = InputDevices.GetDeviceAtXRNode(XRNode.Head);
+            while (Time.realtimeSinceStartup < trackingDeadline)
+            {
+                if (!headset.isValid)
+                    headset = InputDevices.GetDeviceAtXRNode(XRNode.Head);
+                if (headset.isValid &&
+                    headset.TryGetFeatureValue(CommonUsages.isTracked, out bool isTracked) &&
+                    isTracked)
+                    break;
+                yield return null;
+            }
+            yield return new WaitForEndOfFrame();
+
             Exception initializationError = null;
             try
             {
@@ -96,7 +113,7 @@ namespace HandTrackingViz
 
                 NativeGStreamerBridge.ConfigureVideoTexture(streamWidth, streamHeight);
 
-                CreateHeadLockedScreen(streamWidth, streamHeight);
+                CreateMovableScreen(streamWidth, streamHeight);
                 m_RuntimeReady = true;
                 StartNativeReceiver();
             }
@@ -200,7 +217,7 @@ namespace HandTrackingViz
             }
         }
 
-        void CreateHeadLockedScreen(int width, int height)
+        void CreateMovableScreen(int width, int height)
         {
             Shader shader = videoShader != null ? videoShader : Shader.Find("Teleoperation/ArmCamera");
             if (shader == null)
@@ -210,19 +227,20 @@ namespace HandTrackingViz
             m_Screen.name = "Arm Camera View";
             m_Screen.layer = gameObject.layer;
             Collider screenCollider = m_Screen.GetComponent<Collider>();
-            if (screenCollider != null) Destroy(screenCollider);
+            if (screenCollider != null)
+            {
+                screenCollider.enabled = false;
+                Destroy(screenCollider);
+            }
+            BoxCollider windowCollider = m_Screen.AddComponent<BoxCollider>();
+            windowCollider.size = new Vector3(1f, 1f, 0.02f);
 
             Transform screenTransform = m_Screen.transform;
             screenTransform.SetParent(transform, false);
             screenTransform.localPosition = new Vector3(0f, 0f, screenDistance);
             screenTransform.localRotation = Quaternion.identity;
 
-            Camera hmdCamera = GetComponent<Camera>();
-            float verticalFov = hmdCamera != null && hmdCamera.fieldOfView > 1f
-                ? hmdCamera.fieldOfView
-                : 90f;
-            float screenHeight = 2f * screenDistance * Mathf.Tan(verticalFov * 0.5f * Mathf.Deg2Rad)
-                                 * fieldOfViewCoverage;
+            float screenHeight = Mathf.Clamp(windowHeight, 0.25f, 1.5f);
             float eyeAspect = layout == VideoLayout.SideBySide
                 ? (width * 0.5f) / height
                 : (float)width / height;
@@ -235,6 +253,14 @@ namespace HandTrackingViz
             m_VideoMaterial.mainTexture = m_VideoTexture;
             m_VideoMaterial.SetFloat("_StereoLayout", layout == VideoLayout.SideBySide ? 1f : 0f);
             screenRenderer.sharedMaterial = m_VideoMaterial;
+
+            // Keep the panel in XR tracking space after its initial placement in front of the HMD.
+            // This makes it behave like a spatial window instead of following every head movement.
+            Transform trackingOrigin = transform.root;
+            screenTransform.SetParent(trackingOrigin, true);
+
+            ArmCameraWindowInteractor interactor = m_Screen.AddComponent<ArmCameraWindowInteractor>();
+            interactor.Initialize(trackingOrigin, windowCollider);
         }
 
         void OnDestroy()

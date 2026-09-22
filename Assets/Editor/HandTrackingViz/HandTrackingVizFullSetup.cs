@@ -38,6 +38,7 @@ namespace HandTrackingViz.EditorTools
             // Interaction profiles — keep OpenXR project validation happy / allow controller fallback.
             "UnityEngine.XR.OpenXR.Features.Interactions.HandCommonPosesInteraction",
             "UnityEngine.XR.OpenXR.Features.Interactions.OculusTouchControllerProfile",
+            "UnityEngine.XR.OpenXR.Features.Interactions.MetaQuestTouchPlusControllerProfile",
         };
 
         [MenuItem("Tools/Hand Tracking Viz/3. Full Setup (incl. XR enable)")]
