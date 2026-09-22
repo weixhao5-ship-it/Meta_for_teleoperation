@@ -52,7 +52,7 @@ namespace HandTrackingViz.EditorTools
             HandTrackingVizSceneSetup.SetupScene();
             Configure();
             Debug.Log("[HandTrackingViz] Full setup done. Remaining manual step: enable the OpenXR features " +
-                      "(Meta Quest group, Hand Tracking Subsystem, Passthrough) in " +
+                      "(Meta Quest group and Hand Tracking Subsystem) in " +
                       "Project Settings ▸ XR Plug-in Management ▸ OpenXR (Android).");
         }
     }

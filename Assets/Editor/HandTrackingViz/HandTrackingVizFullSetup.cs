@@ -16,8 +16,8 @@ namespace HandTrackingViz.EditorTools
     /// <summary>
     /// End-to-end, idempotent setup that leaves the project in a buildable-and-runnable state for
     /// Meta Quest: scene rig + HandVisualizer, Android player settings, the OpenXR loader registered
-    /// for Android/Standalone, and the required OpenXR features (Meta Quest Support, Hand Tracking,
-    /// Passthrough camera) enabled.
+    /// for Android/Standalone, and the required OpenXR features (Meta Quest Support and Hand Tracking)
+    /// enabled.
     ///
     /// Designed to be invoked headlessly:
     ///   Unity -batchmode -quit -projectPath . -buildTarget Android \
@@ -34,8 +34,6 @@ namespace HandTrackingViz.EditorTools
         {
             "UnityEngine.XR.OpenXR.Features.MetaQuestSupport.MetaQuestFeature", // Meta Quest Support
             "UnityEngine.XR.Hands.OpenXR.HandTracking",                         // Hand Tracking Subsystem
-            "UnityEngine.XR.OpenXR.Features.Meta.ARCameraFeature",              // Meta Quest: Camera (Passthrough)
-            "UnityEngine.XR.OpenXR.Features.Meta.ARSessionFeature",             // Meta Quest: Session (required by the AR/passthrough features)
             "UnityEngine.XR.OpenXR.Features.CompositionLayers.OpenXRCompositionLayersFeature", // Composition Layers Support (required because the com.unity.xr.compositionlayers package is present)
             // Interaction profiles — keep OpenXR project validation happy / allow controller fallback.
             "UnityEngine.XR.OpenXR.Features.Interactions.HandCommonPosesInteraction",
@@ -47,7 +45,7 @@ namespace HandTrackingViz.EditorTools
         {
             int failures = 0;
 
-            failures += Step("Scene setup (XR Origin + passthrough camera + HandVisualizer)", SetupSceneStep);
+            failures += Step("Scene setup (XR Origin + arm-camera view + HandVisualizer)", SetupSceneStep);
             failures += Step("Android player settings (IL2CPP / ARM64 / minSDK32 / Linear)", () =>
                 HandTrackingVizPlayerSettings.Configure());
             failures += Step("Register OpenXR loader (Android + Standalone)", () =>
@@ -95,7 +93,7 @@ namespace HandTrackingViz.EditorTools
             if (active.path != ScenePath)
                 EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
 
-            // Reuse the project's tested scene builder (creates rig, passthrough camera, HandVisualizer, saves).
+            // Reuse the project's scene builder (creates the XR rig and HandVisualizer, then saves).
             HandTrackingVizSceneSetup.SetupScene();
         }
 

@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using UnityEditor;
+using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
 using UnityEngine;
 
@@ -43,7 +44,7 @@ public static class BuildAndroid
         // first so they can be restored after the build — the overrides are for
         // this one APK only and must never be serialized back to disk.
         string origProductName = PlayerSettings.productName;
-        string origAppId = PlayerSettings.GetApplicationIdentifier(BuildTargetGroup.Android);
+        string origAppId = PlayerSettings.GetApplicationIdentifier(NamedBuildTarget.Android);
 
         string productName = ArgValue("-productName");
         if (!string.IsNullOrEmpty(productName))
@@ -51,7 +52,7 @@ public static class BuildAndroid
 
         string appId = ArgValue("-applicationIdentifier");
         if (!string.IsNullOrEmpty(appId))
-            PlayerSettings.SetApplicationIdentifier(BuildTargetGroup.Android, appId);
+            PlayerSettings.SetApplicationIdentifier(NamedBuildTarget.Android, appId);
 
         // Default output name follows productName, so it reflects an override.
         string output = ArgValue("-output")
@@ -61,7 +62,7 @@ public static class BuildAndroid
         Debug.Log($"[BuildAndroid] scenes: {string.Join(", ", scenes)}");
         Debug.Log($"[BuildAndroid] output: {output}");
         Debug.Log($"[BuildAndroid] productName: {PlayerSettings.productName} " +
-                  $"applicationIdentifier: {PlayerSettings.GetApplicationIdentifier(BuildTargetGroup.Android)}");
+                  $"applicationIdentifier: {PlayerSettings.GetApplicationIdentifier(NamedBuildTarget.Android)}");
 
         var options = new BuildPlayerOptions
         {
@@ -83,7 +84,7 @@ public static class BuildAndroid
             // Restore the committed identity even if the build throws, so the
             // working tree stays clean between builds.
             PlayerSettings.productName = origProductName;
-            PlayerSettings.SetApplicationIdentifier(BuildTargetGroup.Android, origAppId);
+            PlayerSettings.SetApplicationIdentifier(NamedBuildTarget.Android, origAppId);
         }
 
         Debug.Log($"[BuildAndroid] result={summary.result} " +

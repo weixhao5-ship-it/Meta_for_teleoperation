@@ -414,6 +414,7 @@ GameObject:
   - component: {fileID: 914959949}
   - component: {fileID: 914959953}
   - component: {fileID: 914959954}
+  - component: {fileID: 914959955}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -448,6 +449,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c460f8518c6087a05b02c12d3bd9697d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: HandTrackingViz::HandTrackingViz.PassthroughSetup
+  showPassthrough: 0
 --- !u!114 &914959950
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -551,7 +553,7 @@ Camera:
   m_Enabled: 1
   serializedVersion: 2
   m_ClearFlags: 2
-  m_BackGroundColor: {r: 0, g: 0, b: 0, a: 0}
+  m_BackGroundColor: {r: 0, g: 0, b: 0, a: 1}
   m_projectionMatrixMode: 1
   m_GateFitMode: 2
   m_FOVAxisMode: 0
@@ -599,7 +601,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 914959947}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 4966719baa26e4b0e8231a24d9bd491a, type: 3}
   m_Name: 
@@ -655,6 +657,25 @@ MonoBehaviour:
     m_VarianceClampScale: 0.9
     m_ContrastAdaptiveSharpening: 0
   m_Version: 2
+--- !u!114 &914959955
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 914959947}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e827741bb57d4a6cb0da3b2ae52afc39, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: HandTrackingViz::HandTrackingViz.ArmCameraStreamView
+  port: 5000
+  streamWidth: 1280
+  streamHeight: 720
+  layout: 0
+  screenDistance: 1.2
+  fieldOfViewCoverage: 1.2
+  videoShader: {fileID: 4800000, guid: b861a3a5f9014e47a91cc206c54c4119, type: 3}
 --- !u!1 &945561008
 GameObject:
   m_ObjectHideFlags: 0
@@ -803,7 +824,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1743788545}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 3859a92a05d4f5d418cb6ca605290e74, type: 3}
   m_Name: 
