@@ -11,12 +11,11 @@ namespace HandTrackingViz
     //   1. HMD      — head pose is live this frame
     //   2. LEFT     — left hand OR left controller tracked
     //   3. RIGHT    — right hand OR right controller tracked
-    //   4. RECEIVER — at least one TCP subscriber is connected (set apart by
+    //   4. RECEIVER — at least one UDP subscriber is registered (set apart by
     //                 an extra gap, marking it as the network dot)
     //
-    // GREEN = OK, RED = missing. PoseFramePublisher owns one and feeds it the
-    // same values it serializes, so a green dot means the receiver is actually
-    // getting that source as tracked — not merely that the headset thinks so.
+    // GREEN = OK, RED = missing. Source dots reflect the latest tracked values
+    // serialized by PoseFramePublisher; RECEIVER means a UDP endpoint registered.
     //
     // The dots are tiny spheres parented to the HMD camera (head-locked), so
     // they need no billboarding and stay in the corner of the view.

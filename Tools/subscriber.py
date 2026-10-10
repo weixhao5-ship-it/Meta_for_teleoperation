@@ -1,13 +1,14 @@
 """
-Meta Quest unified subscriber (TCP / NDJSON).
+Meta Quest unified subscriber (UDP / JSON datagrams).
 
-Connects to the single Unity PoseFramePublisher — a TCP server socket on the
-headset (default port 5555) that streams NDJSON: one JSON object per line,
-'\\n' terminated, UTF-8. Decodes each line and prints the receive rate plus the
-HMD / palm / hand tracking state. No external dependencies (standard library
-only) — matches SCHEMA.md.
+The PC sends a small registration datagram to the Unity app on the headset
+(default port 5555). Unity then sends one UTF-8 JSON datagram per pose update
+to the PC's UDP source endpoint. The subscriber repeats registration once per
+second, so Unity can discover the PC address without a separate IP setting.
+This script prints the receive rate and HMD / hand / controller tracking state.
+It uses only Python's standard library.
 
-One line carries the whole device state:
+One datagram carries the whole device state:
   {
     "timestamp": <seconds since app start, double>,
     "frame": <Unity frame count, int>,
@@ -30,7 +31,7 @@ One line carries the whole device state:
     ]
   }
 
-Hands vs controllers: the two are INDEPENDENT, not a mode switch. Any frame may
+Hands vs controllers: the two are INDEPENDENT, not a mode switch. Any packet may
 carry both, either, or neither — pick whichever source is tracked. "controller"
 is the handle POSE; "grip_trigger" is the INDEX (front) trigger — named for its
 role, it drives the gripper — and "ctrl_trigger" is the hardware grip (side)
@@ -60,6 +61,7 @@ import time
 from typing import Optional
 
 LANDMARKS_PER_HAND = 21
+SUBSCRIBE_MESSAGE = b"META_POSE_SUBSCRIBE"
 
 
 def main() -> None:
@@ -67,7 +69,7 @@ def main() -> None:
     parser.add_argument("--host", default="127.0.0.1",
                         help="Headset IP address, e.g. 192.168.0.42")
     parser.add_argument("--port", type=int, default=5555,
-                        help="TCP port the headset publishes on (default 5555).")
+                        help="UDP port on the headset (default 5555).")
     parser.add_argument("--print-every", type=float, default=1.0,
                         help="Seconds between status prints.")
     args = parser.parse_args()
@@ -83,37 +85,35 @@ def main() -> None:
 
 
 def run_once(args) -> None:
-    with socket.create_connection((args.host, args.port), timeout=5.0) as sock:
-        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-        print(f"[subscriber] connected to {args.host}:{args.port}")
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+        sock.settimeout(0.1)
+        print(f"[subscriber] registering with {args.host}:{args.port} over UDP")
 
-        buf = b""
         received = 0
         last_log = time.monotonic()
+        last_registration = 0.0
+        print_interval = max(0.1, args.print_every)
 
         while True:
-            chunk = sock.recv(65536)
-            if not chunk:
-                raise ConnectionError("server closed the connection")
-            buf += chunk
+            now = time.monotonic()
+            if now - last_registration >= 1.0:
+                sock.sendto(SUBSCRIBE_MESSAGE, (args.host, args.port))
+                last_registration = now
 
-            # Consume every complete '\n'-terminated line; keep only the latest
-            # for display (publish-and-forget — intermediate frames are fine to
-            # skip when we fall behind).
-            latest: Optional[dict] = None
-            while b"\n" in buf:
-                line, buf = buf.split(b"\n", 1)
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    latest = json.loads(line.decode("utf-8"))
-                    received += 1
-                except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-                    print(f"[subscriber] bad line: {exc}")
+            try:
+                data, _remote = sock.recvfrom(65535)
+            except socket.timeout:
+                continue
+
+            try:
+                latest = json.loads(data.decode("utf-8").strip())
+                received += 1
+            except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+                print(f"[subscriber] bad datagram: {exc}")
+                continue
 
             now = time.monotonic()
-            if latest is not None and now - last_log >= args.print_every:
+            if now - last_log >= print_interval:
                 rate = received / (now - last_log)
                 received = 0
                 last_log = now

@@ -15,22 +15,17 @@ namespace HandTrackingViz
     /// palm + 21 MediaPipe landmarks, and both controllers' pose/inputs. It
     /// matches the wire format in SCHEMA.md exactly:
     ///
-    ///   Transport : TCP server socket (this app is the server), NDJSON —
-    ///               one JSON object per line, '\n' terminated, UTF-8.
-    ///   Port      : 5555 (Inspector-configurable).
-    ///   Sockets   : TCP_NODELAY = true, SendTimeout = 2000 ms.
-    ///   Model     : publish-and-forget broadcast — the newest frame is written
-    ///               to every connected client; slow/broken clients are dropped
-    ///               (their frames are lost). The server only writes, never reads.
+    ///   Transport : UDP — one UTF-8 JSON datagram per published packet.
+    ///   Port      : 5555 (Inspector-configurable); subscribers register with a
+    ///               small UDP request, then receive frames at their source endpoint.
+    ///   Model     : publish-and-forget broadcast — the newest sampled state is sent
+    ///               to each registered endpoint. UDP may lose or reorder packets.
     ///
     /// Rate (SCHEMA.md):
-    ///   - One JSON line is built PER RENDER FRAME on the main thread (Update)
-    ///     and handed to the send thread (latest-value). At the Quest frame
-    ///     rate this is ~72 Hz. Even an all-untracked frame is emitted.
-    ///   - maxPublishHz caps that: 0 = every frame; > 0 enforces a 1/maxPublishHz
-    ///     minimum interval (Time.unscaledTime based).
-    ///   - A background send thread wakes on an AutoResetEvent and writes only the
-    ///     MOST RECENT payload, so bursts coalesce (latest-state, no lag build-up).
+    ///   - The main thread samples poses and builds the latest JSON snapshot once
+    ///     per render frame. A background thread sends the latest snapshot at
+    ///     publishRateHz (60 Hz by default); packets can repeat a sample when the
+    ///     render/tracking rate is below 60 Hz.
     ///
     /// Contract:
     ///   - All positions are meters. Poses are sampled in Unity world space
@@ -68,14 +63,14 @@ namespace HandTrackingViz
                  "Defaults to Camera.main when left empty.")]
         public Camera hmdCamera;
 
-        [Header("Network (TCP server)")]
-        [Tooltip("TCP port the publisher listens on. Receivers connect to tcp://<quest-ip>:<port>.")]
+        [Header("Network (UDP)")]
+        [Tooltip("UDP port used for subscriber registration and pose datagrams.")]
         public int port = 5555;
 
-        [Tooltip("0 = publish every render frame. > 0 caps the publish rate to this many Hz.")]
-        public int maxPublishHz = 0;
+        [Tooltip("Pose datagram send rate in Hz. Defaults to 100; snapshots are sampled on Unity's render frames.")]
+        public int publishRateHz = 60;
 
-        [Tooltip("Log client connect/disconnect events to the Unity console.")]
+        [Tooltip("Log UDP subscriber registration/expiry events to the Unity console.")]
         public bool logConnections = true;
 
         [Header("Palm pose")]
@@ -89,7 +84,7 @@ namespace HandTrackingViz
 
         [Header("Status HUD")]
         [Tooltip("Show four head-locked dots in the top-left of the view: HMD, left, " +
-                 "right (hand or controller) and receiver connection. Green = tracked / " +
+                 "right (hand or controller) and receiver registration. Green = tracked / " +
                  "connected, red = missing.")]
         public bool showStatusHud = true;
 
@@ -113,30 +108,41 @@ namespace HandTrackingViz
 
         // Reused each frame (built on the main thread only).
         readonly StringBuilder m_Sb = new StringBuilder(4096);
-        float m_LastPublishTime = -999f;
         long m_PublishCounter;
         float m_LastLogTime;
 
         // Latest-value payload hand-off: main thread writes, send thread reads.
         readonly object m_PayloadLock = new object();
-        byte[] m_LatestPayload;                // UTF-8 JSON line (incl. '\n')
-        readonly AutoResetEvent m_PayloadReady = new AutoResetEvent(false);
+        byte[] m_LatestPayload;                // UTF-8 JSON datagram payload.
 
-        // Connected clients (publish-and-forget broadcast targets).
+        // Registered UDP clients (publish-and-forget broadcast targets).
         readonly object m_ClientsLock = new object();
-        readonly List<TcpClient> m_Clients = new List<TcpClient>();
-        readonly List<TcpClient> m_SendScratch = new List<TcpClient>();
+        readonly List<UdpSubscriber> m_Clients = new List<UdpSubscriber>();
+        readonly List<UdpSubscriber> m_SendScratch = new List<UdpSubscriber>();
 
-        TcpListener m_Listener;
-        Thread m_AcceptThread;
+        UdpClient m_Receiver;
         Thread m_SendThread;
         volatile bool m_Running;
 
+        const string SubscribeMessage = "META_POSE_SUBSCRIBE";
+        const double SubscriberTimeoutSeconds = 3.0;
+
+        sealed class UdpSubscriber
+        {
+            public readonly IPEndPoint endpoint;
+            public DateTime lastSeenUtc;
+
+            public UdpSubscriber(IPEndPoint endpoint)
+            {
+                this.endpoint = endpoint;
+                lastSeenUtc = DateTime.UtcNow;
+            }
+        }
+
         /// <summary>
-        /// Number of currently connected TCP subscribers. Thread-safe; feeds the
-        /// on-device status HUD's RECEIVER dot. Broken clients are dropped by the
-        /// send loop on write failure (~SendTimeout = 2 s), so this decays to 0
-        /// shortly after the last receiver goes away.
+        /// Number of currently registered UDP subscribers. Thread-safe; feeds the
+        /// on-device status HUD's RECEIVER dot. Subscribers expire after their
+        /// registration heartbeat stops.
         /// </summary>
         public int ConnectedClientCount
         {
@@ -161,48 +167,40 @@ namespace HandTrackingViz
         {
             try
             {
-                m_Listener = new TcpListener(IPAddress.Any, port);
-                m_Listener.Start();
+                m_Receiver = new UdpClient(port);
             }
             catch (Exception e)
             {
-                Debug.LogError($"[PoseFramePublisher] failed to bind TCP :{port} — {e.Message}. " +
-                               "Is the INTERNET permission granted and the port free?");
-                m_Listener = null;
+                Debug.LogError($"[PoseFramePublisher] failed to open UDP port {port}: {e.Message}.");
+                m_Receiver?.Close();
+                m_Receiver = null;
                 return;
             }
 
             m_Running = true;
-            m_AcceptThread = new Thread(AcceptLoop) { IsBackground = true, Name = "PoseFramePublisher.Accept" };
-            m_AcceptThread.Start();
             m_SendThread = new Thread(SendLoop) { IsBackground = true, Name = "PoseFramePublisher.Send" };
             m_SendThread.Start();
 
-            Debug.Log($"[PoseFramePublisher] TCP NDJSON server listening on 0.0.0.0:{port}.");
+            Debug.Log($"[PoseFramePublisher] UDP pose publisher listening on 0.0.0.0:{port}; " +
+                      $"sending at {Mathf.Max(1, publishRateHz)} Hz.");
         }
 
         void OnDisable()
         {
             m_Running = false;
-            m_PayloadReady.Set();                     // wake the send thread so it can exit
-            try { m_Listener?.Stop(); } catch { /* ignore */ }   // unblocks AcceptTcpClient
-            try { m_AcceptThread?.Join(500); } catch { /* ignore */ }
             try { m_SendThread?.Join(500); } catch { /* ignore */ }
+            try { m_Receiver?.Close(); } catch { /* ignore */ }
 
-            lock (m_ClientsLock)
-            {
-                foreach (var c in m_Clients) { try { c.Close(); } catch { /* ignore */ } }
-                m_Clients.Clear();
-            }
-            m_AcceptThread = null;
+            lock (m_PayloadLock) { m_LatestPayload = null; }
+            lock (m_ClientsLock) { m_Clients.Clear(); }
             m_SendThread = null;
-            m_Listener = null;
+            m_Receiver = null;
         }
 
         void Update()
         {
-            // Sampling runs every frame regardless of the rate cap so the HUD
-            // mirrors the live state; only the network hand-off is capped.
+            // Sampling runs on Unity's render frame; the UDP sender publishes the
+            // newest snapshot at its own configured rate.
             m_Provider.palmPoseSource = palmPoseSource;
             m_LeftTracked = m_Provider.TryUpdate(HandSide.Left, trackingOrigin, m_Left);
             m_RightTracked = m_Provider.TryUpdate(HandSide.Right, trackingOrigin, m_Right);
@@ -216,11 +214,9 @@ namespace HandTrackingViz
             // source is tracked. Sampling is unconditional so a frame with no
             // controller still says so explicitly.
             //
-            // Guarded because this runs BEFORE the payload hand-off: an exception
-            // escaping here would abort Update() every frame, and the publisher
-            // would then accept TCP clients (background thread) while never
-            // sending a byte — a silent, confusing failure. Controller trouble
-            // must cost the controllers, not the whole stream.
+            // Guarded because this runs before the payload hand-off: an exception
+            // escaping here would abort Update() and stop fresh snapshots. Controller
+            // trouble must cost the controllers, not the whole stream.
             try
             {
                 if (publishControllers)
@@ -239,10 +235,9 @@ namespace HandTrackingViz
                 }
             }
 
-            // The HUD mirrors exactly what is being published: a dot is green only
-            // if the receiver sees that source as tracked (left/right count either
-            // the hand or the controller), and RECEIVER is green while at least
-            // one TCP subscriber is connected.
+            // The HUD mirrors the latest snapshot: a dot is green only if that
+            // source is tracked, and RECEIVER is green while a UDP subscriber is
+            // registered.
             if (m_StatusHud != null)
                 m_StatusHud.SetStates(
                     hmd.tracked,
@@ -253,21 +248,13 @@ namespace HandTrackingViz
             if (!m_Running)
                 return;
 
-            if (maxPublishHz > 0)
-            {
-                float minInterval = 1f / maxPublishHz;
-                if (Time.unscaledTime - m_LastPublishTime < minInterval) return;
-            }
-            m_LastPublishTime = Time.unscaledTime;
-
             byte[] bytes = Encoding.UTF8.GetBytes(BuildJson(hmd));
             lock (m_PayloadLock) { m_LatestPayload = bytes; }
-            m_PayloadReady.Set();
 
             if (logPublishCount && Time.time - m_LastLogTime >= logIntervalSeconds)
             {
                 m_LastLogTime = Time.time;
-                Debug.Log($"[PoseFramePublisher] {Interlocked.Read(ref m_PublishCounter)} frames sent, " +
+                Debug.Log($"[PoseFramePublisher] {Interlocked.Read(ref m_PublishCounter)} UDP packets sent, " +
                           $"{ConnectedClientCount} client(s).");
             }
         }
@@ -301,22 +288,54 @@ namespace HandTrackingViz
         // ----------------------------------------------------------------
         // Networking threads
         // ----------------------------------------------------------------
-        void AcceptLoop()
+        void ReceiveRegistrations()
         {
-            while (m_Running)
+            // Poll the same bound socket used for sending. One worker thread owns
+            // both operations, and replies originate from the registered port.
+            for (int handled = 0; m_Running && handled < 8 && m_Receiver.Available > 0; handled++)
             {
-                TcpClient client;
-                try { client = m_Listener.AcceptTcpClient(); }
-                catch { break; }   // listener stopped (shutdown) or faulted
-                try
+                IPEndPoint remote = new IPEndPoint(IPAddress.Any, 0);
+                byte[] request;
+                try { request = m_Receiver.Receive(ref remote); }
+                catch (ObjectDisposedException) { return; }
+                catch (SocketException)
                 {
-                    client.NoDelay = true;
-                    client.SendTimeout = 2000;
+                    return;
                 }
-                catch { /* best effort */ }
-                lock (m_ClientsLock) { m_Clients.Add(client); }
-                if (logConnections)
-                    Debug.Log($"[PoseFramePublisher] client connected: {SafeRemote(client)}");
+                catch (Exception e)
+                {
+                    if (!m_Running) return;
+                    Debug.LogError("[PoseFramePublisher] UDP receive failed: " + e.Message);
+                    return;
+                }
+
+                if (Encoding.ASCII.GetString(request) != SubscribeMessage)
+                    continue;
+
+                bool added = false;
+                lock (m_ClientsLock)
+                {
+                    UdpSubscriber subscriber = null;
+                    foreach (var client in m_Clients)
+                    {
+                        if (client.endpoint.Equals(remote))
+                        {
+                            subscriber = client;
+                            break;
+                        }
+                    }
+
+                    if (subscriber == null)
+                    {
+                        subscriber = new UdpSubscriber(remote);
+                        m_Clients.Add(subscriber);
+                        added = true;
+                    }
+                    subscriber.lastSeenUtc = DateTime.UtcNow;
+                }
+
+                if (added && logConnections)
+                    Debug.Log($"[PoseFramePublisher] UDP subscriber registered: {remote}.");
             }
         }
 
@@ -324,45 +343,68 @@ namespace HandTrackingViz
         {
             while (m_Running)
             {
-                m_PayloadReady.WaitOne();
-                if (!m_Running) break;
+                long loopStart = System.Diagnostics.Stopwatch.GetTimestamp();
+                ReceiveRegistrations();
 
                 byte[] payload;
                 lock (m_PayloadLock) { payload = m_LatestPayload; }
-                if (payload == null) continue;
 
                 m_SendScratch.Clear();
-                lock (m_ClientsLock) { m_SendScratch.AddRange(m_Clients); }
-                if (m_SendScratch.Count == 0) continue;
-
-                foreach (var c in m_SendScratch)
+                DateTime now = DateTime.UtcNow;
+                lock (m_ClientsLock)
                 {
-                    try
+                    for (int i = m_Clients.Count - 1; i >= 0; i--)
                     {
-                        NetworkStream stream = c.GetStream();
-                        stream.Write(payload, 0, payload.Length);
+                        if ((now - m_Clients[i].lastSeenUtc).TotalSeconds > SubscriberTimeoutSeconds)
+                        {
+                            if (logConnections)
+                                Debug.Log($"[PoseFramePublisher] UDP subscriber expired: {m_Clients[i].endpoint}.");
+                            m_Clients.RemoveAt(i);
+                        }
                     }
-                    catch
+                    m_SendScratch.AddRange(m_Clients);
+                }
+
+                if (payload != null)
+                {
+                    foreach (var client in m_SendScratch)
                     {
-                        RemoveClient(c);   // slow/broken client -> drop it
+                        try
+                        {
+                            // Send through the bound port-5555 socket so the datagram
+                            // source matches the endpoint the PC registered with.
+                            m_Receiver.Send(payload, payload.Length, client.endpoint);
+                            Interlocked.Increment(ref m_PublishCounter);
+                        }
+                        catch (Exception e)
+                        {
+                            if (!m_Running) break;
+                            bool removed = false;
+                            lock (m_ClientsLock)
+                            {
+                                for (int i = m_Clients.Count - 1; i >= 0; i--)
+                                {
+                                    if (m_Clients[i].endpoint.Equals(client.endpoint))
+                                    {
+                                        m_Clients.RemoveAt(i);
+                                        removed = true;
+                                    }
+                                }
+                            }
+                            if (removed && logConnections)
+                                Debug.LogWarning($"[PoseFramePublisher] UDP send to {client.endpoint} failed: {e.Message}");
+                        }
                     }
                 }
-                Interlocked.Increment(ref m_PublishCounter);
+
+                int rateHz = Math.Max(1, publishRateHz);
+                int periodMs = Math.Max(1, (int)Math.Round(1000.0 / rateHz));
+                long elapsedTicks = System.Diagnostics.Stopwatch.GetTimestamp() - loopStart;
+                int elapsedMs = (int)(elapsedTicks * 1000.0 / System.Diagnostics.Stopwatch.Frequency);
+                int waitMs = periodMs - elapsedMs;
+                if (waitMs > 0)
+                    Thread.Sleep(waitMs);
             }
-        }
-
-        void RemoveClient(TcpClient c)
-        {
-            lock (m_ClientsLock) { m_Clients.Remove(c); }
-            try { c.Close(); } catch { /* ignore */ }
-            if (logConnections)
-                Debug.Log("[PoseFramePublisher] client dropped.");
-        }
-
-        static string SafeRemote(TcpClient c)
-        {
-            try { return c.Client.RemoteEndPoint?.ToString() ?? "?"; }
-            catch { return "?"; }
         }
 
         // ----------------------------------------------------------------
@@ -398,7 +440,7 @@ namespace HandTrackingViz
             sb.Append(']');
 
             sb.Append('}');
-            sb.Append('\n');   // NDJSON line terminator
+            sb.Append('\n');   // Whitespace terminator; one complete JSON object is sent per datagram.
             return sb.ToString();
         }
 

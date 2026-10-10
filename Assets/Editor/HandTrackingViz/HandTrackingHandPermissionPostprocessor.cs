@@ -21,7 +21,7 @@ namespace HandTrackingViz.EditorTools
         const string AndroidNs = "http://schemas.android.com/apk/res/android";
         const string HandTrackingPermission = "com.oculus.permission.HAND_TRACKING";
         const string HandTrackingFeature = "oculus.software.handtracking";
-        const string InternetPermission = "android.permission.INTERNET"; // required by PoseFramePublisher's TCP server
+        const string InternetPermission = "android.permission.INTERNET"; // required by PoseFramePublisher's UDP sockets
 
         public int callbackOrder => 1;
 

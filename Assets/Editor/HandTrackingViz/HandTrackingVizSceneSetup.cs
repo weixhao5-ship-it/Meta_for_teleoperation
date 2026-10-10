@@ -52,9 +52,19 @@ namespace HandTrackingViz.EditorTools
                 visualizer = go.AddComponent<HandVisualizer>();
             }
             visualizer.trackingOrigin = origin.transform;
+            if (visualizer.leftControllerModelPrefab == null)
+            {
+                visualizer.leftControllerModelPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                    "Assets/Samples/XR Interaction Toolkit/3.2.2/Starter Assets/Prefabs/Controllers/XR Controller Left.prefab");
+            }
+            if (visualizer.rightControllerModelPrefab == null)
+            {
+                visualizer.rightControllerModelPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                    "Assets/Samples/XR Interaction Toolkit/3.2.2/Starter Assets/Prefabs/Controllers/XR Controller Right.prefab");
+            }
             EditorUtility.SetDirty(visualizer);
 
-            // 4b. Create / wire the PoseFramePublisher (data-only: hands + palm + HMD pose over TCP/NDJSON).
+            // 4b. Create / wire the PoseFramePublisher (HMD, hands and controllers over UDP).
             var publisher = Object.FindFirstObjectByType<PoseFramePublisher>();
             if (publisher == null)
             {

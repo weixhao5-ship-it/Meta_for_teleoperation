@@ -4,23 +4,24 @@
 
 **Unity app for Meta Quest (Horizon OS).** Visualizes hand tracking on top of
 the passthrough view and streams the HMD, both hands (21 landmarks) and both
-controllers' pose/input state to a PC over TCP in real time, every frame.
-The headset is the server; the PC is the client.
+controllers' pose/input state to a PC over UDP in real time at 60 packets/s.
+The PC registers with the headset, and the headset sends datagrams back to it.
 
 ```
-Meta Quest (Unity APK)  ──TCP :5555 (NDJSON)──▶  PC (subscriber / robot control, etc.)
+Meta Quest (Unity APK)  ──UDP :5555 (60 Hz JSON)──▶  PC (subscriber / robot control, etc.)
+                         ◀── UDP registration ──────
 ```
 
 ## Transport
 
 | Item | Value |
 | --- | --- |
-| Protocol | **TCP server** — the headset opens the port; the PC connects to `tcp://<headset-ip>:5555` |
+| Protocol | **UDP** — the PC sends a registration datagram to `udp://<headset-ip>:5555`; pose datagrams return to the PC's source endpoint |
 | Port | `5555` (configurable in the Inspector) |
-| Format | **NDJSON** — one JSON object per line, `\n`-terminated, UTF-8 |
-| Rate | **Every render frame** (Quest ≈ 72 Hz). Cap with `maxPublishHz > 0` (default 0 = uncapped) |
-| Semantics | **Latest-value broadcast** — a background send thread writes only the most recent frame to every connected client. A slow client never stalls the stream, and broken clients are dropped automatically |
-| Delivery guarantee | Frames where nothing is tracked are still published (marked `tracked: false`), never skipped |
+| Format | One complete UTF-8 JSON object per UDP datagram |
+| Rate | **60 datagrams/s** by default (`publishRateHz`). Poses are sampled on Unity render frames, so packets may repeat the latest sample when the render rate is below 60 Hz |
+| Semantics | Latest-value broadcast to registered endpoints. Registration heartbeats expire after 3 seconds |
+| Delivery guarantee | UDP is best-effort: packets can be lost or arrive out of order. Untracked sources are still included with `tracked: false` |
 
 The publisher (`PoseFramePublisher`) is already wired into the scene as the
 `PosePublisher` object in `SampleScene`, so no manual setup is needed — a
@@ -35,11 +36,11 @@ python Tools/subscriber.py --host <headset-ip> --port 5555
 ```
 
 Find the headset IP in the device's Wi-Fi settings; it must be on the same
-network as the PC.
+network as the PC. Allow UDP port 5555 through the PC firewall if needed.
 
 ## Data schema
 
-One line = one frame, consisting of `timestamp` / `frame` / `hmd` /
+One datagram = one snapshot, consisting of `timestamp` / `frame` / `hmd` /
 `hands` (21 landmarks each) / `controllers`. Field definitions, coordinate
 system and omission rules:
 

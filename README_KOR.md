@@ -3,23 +3,24 @@
 # Meta_for_teleoperation
 
 **Meta Quest(Horizon OS)용 Unity 앱.** Passthrough 화면 위에 손(hand tracking)을
-시각화하고, HMD·양손(21 landmark)·컨트롤러의 pose/입력 상태를 매 프레임
-TCP로 PC에 실시간 스트리밍한다. 헤드셋이 서버, PC가 클라이언트다.
+시각화하고, HMD·양손(21 landmark)·컨트롤러의 pose/입력 상태를 초당 60개의
+UDP 패킷으로 PC에 실시간 전송한다. PC가 헤드셋에 등록하고 헤드셋이 응답 패킷을 보낸다.
 
 ```
-Meta Quest (Unity APK)  ──TCP :5555 (NDJSON)──▶  PC (subscriber / 로봇 제어 등)
+Meta Quest (Unity APK)  ──UDP :5555 (60 Hz JSON)──▶  PC (subscriber / 로봇 제어 등)
+                         ◀── UDP 등록 패킷 ──────────
 ```
 
 ## 전송 방식
 
 | 항목 | 값 |
 | --- | --- |
-| 프로토콜 | **TCP 서버** — 헤드셋이 포트를 열고, PC가 `tcp://<헤드셋IP>:5555`로 접속 |
+| 프로토콜 | **UDP** — PC가 `udp://<헤드셋IP>:5555`로 등록 패킷을 보내고, pose 패킷은 PC의 송신 endpoint로 돌아온다 |
 | 포트 | `5555` (Inspector에서 변경 가능) |
-| 포맷 | **NDJSON** — 한 줄에 JSON 1개, `\n` 종단, UTF-8 |
-| 주기 | **매 렌더 프레임** (Quest ≈ 72 Hz). `maxPublishHz > 0`로 상한 설정 가능 (기본 0 = 무제한) |
-| 시맨틱 | **최신값 브로드캐스트** — 백그라운드 송신 스레드가 접속한 모든 클라이언트에 가장 최근 프레임만 전송. 느린 클라이언트가 있어도 스트림이 밀리지 않고, 끊긴 클라이언트는 자동 제거 |
-| 발행 보장 | 모두 미추적인 프레임도 건너뛰지 않고 발행 (`tracked: false`로 표시) |
+| 포맷 | UTF-8 JSON 객체 하나를 UDP datagram 하나에 담는다 |
+| 주기 | 기본 **초당 60 datagram** (`publishRateHz`). pose 샘플은 Unity 렌더 프레임마다 갱신되므로 렌더 주기가 60 Hz보다 낮으면 최신 샘플이 반복될 수 있다 |
+| 시맨틱 | 최신 pose 스냅샷을 등록된 endpoint로 전송한다. 3초간 등록 heartbeat가 없으면 endpoint를 제거한다 |
+| 발행 보장 | UDP는 best-effort 방식으로 패킷이 유실되거나 순서가 바뀔 수 있다. 추적되지 않은 소스도 `tracked: false`로 전송한다 |
 
 퍼블리셔(`PoseFramePublisher`)는 `SampleScene`의 `PosePublisher` 오브젝트로 씬에
 이미 배선돼 있어 수동 작업이 필요 없고, 갓 빌드한 APK가 바로 송신을 시작한다.
@@ -32,11 +33,11 @@ Meta Quest (Unity APK)  ──TCP :5555 (NDJSON)──▶  PC (subscriber / 로�
 python Tools/subscriber.py --host <헤드셋IP> --port 5555
 ```
 
-헤드셋 IP는 기기의 Wi-Fi 설정에서 확인하고, PC와 같은 네트워크에 있어야 한다.
+헤드셋 IP는 기기의 Wi-Fi 설정에서 확인하고, PC와 같은 네트워크에 있어야 한다. 필요하면 PC 방화벽에서 UDP 5555를 허용한다.
 
 ## 데이터 스키마
 
-한 줄 = 한 프레임. `timestamp` / `frame` / `hmd` / `hands`(손, 21 landmark) /
+한 datagram = 한 pose 스냅샷. `timestamp` / `frame` / `hmd` / `hands`(손, 21 landmark) /
 `controllers`(컨트롤러)로 구성된다. 필드별 정의·좌표계·생략 규칙은:
 
 **→ [SCHEMA_KOR.md](SCHEMA_KOR.md)**
